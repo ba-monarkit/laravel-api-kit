@@ -24,7 +24,8 @@ Route::middleware('throttle:auth')->group(function (): void {
     Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
         ->whereIn('provider', config()->array('services.socialite_providers'))
         ->name('api.v1.social.redirect');
-    Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+    // The provider redirects to the frontend, which POSTs the code here (keeps tokens out of browser URLs)
+    Route::post('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
         ->whereIn('provider', config()->array('services.socialite_providers'))
         ->name('api.v1.social.callback');
 });

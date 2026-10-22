@@ -273,25 +273,46 @@ curl -X POST http://localhost:8000/api/v1/reset-password \
 ### Social Login (Socialite)
 
 GitHub and Google are enabled by default (`services.socialite_providers` in `config/services.php`).
-The flow is stateless, which suits SPAs and mobile apps:
+The flow is stateless and the access token never appears in a browser URL:
 
-1. The client calls `GET /api/v1/auth/{provider}/redirect` and receives the provider's authorization URL.
-2. The user signs in at the provider, which redirects to `/api/v1/auth/{provider}/callback?code=...`.
-3. The callback creates (or links, by email) the user, marks the email verified and returns
-   `{ user, token }`, the same as `/login`.
+1. The client calls `GET /api/v1/auth/{provider}/redirect` and sends the user to the returned URL.
+2. The provider redirects the browser to your **frontend** (`FRONTEND_URL/auth/{provider}/callback?code=...`).
+3. The frontend POSTs that code to the API and receives `{ user, token }`, the same as `/login`.
 
 ```bash
 curl http://localhost:8000/api/v1/auth/github/redirect -H "Accept: application/json"
+
+curl -X POST http://localhost:8000/api/v1/auth/github/callback \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{"code": "code-from-provider-redirect"}'
 ```
 
-Configure credentials in `.env`:
+Configure credentials in `.env`, and register the **frontend** callback URL as the redirect URI in the
+GitHub / Google console:
 
 ```env
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
+GITHUB_REDIRECT_URI="${FRONTEND_URL}/auth/github/callback"
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI="${FRONTEND_URL}/auth/google/callback"
 ```
+
+**Account linking rules** (protect against account takeover):
+
+| Situation | Result |
+|-----------|--------|
+| Provider account already linked | Logs in that user |
+| No user with that email | Creates one; email marked verified only if the provider verified it |
+| User with that email exists, provider verified the email | Links the provider and logs in |
+| User with that email exists, provider did **not** verify it | `409 Conflict` (log in with password instead) |
+| Matching local account never verified its email | Linked, but its password is removed and its tokens revoked (it may have been pre-registered by someone else) |
+| Provider returns no email | `422` |
+
+GitHub only ever returns the primary, verified email; Google reports `email_verified`. Any provider you
+add is treated as unverified until you add it to `providerVerifiedEmail()` in `SocialAuthController`.
 
 Accounts created through social login have no password, so `/login` rejects them; they can set one
 with the password-reset flow. To add a provider, add its credentials to `config/services.php` and its
@@ -312,7 +333,7 @@ name to `socialite_providers`.
 | POST   | /forgot-password             | No   | Request password reset link   | 6/min      |
 | POST   | /reset-password              | No   | Reset password with token     | 6/min      |
 | GET    | /auth/{provider}/redirect    | No   | Social login: get provider URL | 5/min     |
-| GET    | /auth/{provider}/callback    | No   | Social login: issue token     | 5/min      |
+| POST   | /auth/{provider}/callback    | No   | Social login: exchange code for token | 5/min |
 
 ## Response Format
 
