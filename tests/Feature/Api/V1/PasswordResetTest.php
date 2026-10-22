@@ -50,6 +50,7 @@ describe('Forgot Password', function (): void {
 describe('Reset Password', function (): void {
     it('resets password successfully with valid token', function (): void {
         $user = User::factory()->create();
+        $user->createToken('test-token');
 
         $token = Password::createToken($user);
 
@@ -69,8 +70,11 @@ describe('Reset Password', function (): void {
         // Verify password was changed
         $this->assertTrue(Hash::check('newpassword123', $user->fresh()->password));
 
-        // Verify all tokens were deleted
-        $this->assertDatabaseCount('personal_access_tokens', 0);
+        // Verify all access tokens were revoked
+        $this->assertDatabaseMissing('oauth_access_tokens', [
+            'user_id' => $user->id,
+            'revoked' => false,
+        ]);
     });
 
     it('fails with invalid token', function (): void {

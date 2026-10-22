@@ -19,9 +19,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Laravel\Passport\AccessToken;
 
 final class AuthController extends ApiController
 {
+    /**
+     * Register a new user and issue an access token.
+     *
+     * @unauthenticated
+     */
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::query()->create([
@@ -32,7 +38,7 @@ final class AuthController extends ApiController
 
         $user->sendEmailVerificationNotification();
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $token = $user->createToken('auth-token')->accessToken;
 
         return $this->created([
             'user' => new UserResource($user),
@@ -40,15 +46,21 @@ final class AuthController extends ApiController
         ], 'User registered successfully. Please check your email to verify your account.');
     }
 
+    /**
+     * Log in with email and password and issue an access token.
+     *
+     * @unauthenticated
+     */
     public function login(LoginRequest $request): JsonResponse
     {
         $user = User::query()->where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        // Social-only accounts have no password and must sign in through their provider.
+        if (! $user || $user->password === null || ! Hash::check($request->password, $user->password)) {
             return $this->unauthorized('Invalid credentials');
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $token = $user->createToken('auth-token')->accessToken;
 
         return $this->success([
             'user' => new UserResource($user),
@@ -60,7 +72,11 @@ final class AuthController extends ApiController
     {
         /** @var User $user */
         $user = $request->user();
-        $user->currentAccessToken()->delete();
+        $token = $user->currentAccessToken();
+
+        if ($token instanceof AccessToken) {
+            $token->revoke();
+        }
 
         return $this->success(message: 'Logged out successfully');
     }
@@ -103,6 +119,11 @@ final class AuthController extends ApiController
         return $this->success(message: 'Verification email sent successfully');
     }
 
+    /**
+     * Send a password reset link to the given email.
+     *
+     * @unauthenticated
+     */
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $status = Password::sendResetLink(
@@ -116,6 +137,11 @@ final class AuthController extends ApiController
         return $this->error('Unable to send reset link', 500);
     }
 
+    /**
+     * Reset the password using a token from the reset email.
+     *
+     * @unauthenticated
+     */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
         $status = Password::reset(
@@ -125,7 +151,7 @@ final class AuthController extends ApiController
                     'password' => Hash::make($password),
                 ])->save();
 
-                $user->tokens()->delete();
+                $user->tokens()->update(['revoked' => true]);
 
                 event(new PasswordReset($user));
             }

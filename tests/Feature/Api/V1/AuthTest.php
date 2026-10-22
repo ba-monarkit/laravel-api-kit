@@ -110,12 +110,28 @@ describe('Login', function (): void {
 
         $response->assertStatus(401);
     });
+
+    it('fails password login for social-only users', function (): void {
+        User::factory()->create([
+            'email' => 'social@example.com',
+            'password' => null,
+            'provider' => 'github',
+            'provider_id' => '42',
+        ]);
+
+        $response = $this->postJson('/api/v1/login', [
+            'email' => 'social@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(401);
+    });
 });
 
 describe('Logout', function (): void {
     it('logs out authenticated user', function (): void {
         $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/v1/logout');
@@ -125,6 +141,11 @@ describe('Logout', function (): void {
                 'success' => true,
                 'message' => 'Logged out successfully',
             ]);
+
+        $this->assertDatabaseMissing('oauth_access_tokens', [
+            'user_id' => $user->id,
+            'revoked' => false,
+        ]);
     });
 
     it('fails logout without authentication', function (): void {
@@ -137,7 +158,7 @@ describe('Logout', function (): void {
 describe('Me', function (): void {
     it('returns authenticated user data', function (): void {
         $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/v1/me');

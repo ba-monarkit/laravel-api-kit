@@ -2,15 +2,17 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "grazulex/laravel-api-kit",
     "type": "project",
-    "description": "Laravel REST API starter kit with Sanctum, Spatie packages, Scramble docs, and Pest testing.",
-    "keywords": ["laravel", "api", "rest", "starter-kit", "sanctum"],
+    "description": "Laravel REST API starter kit with Passport, Telescope, Socialite, Spatie packages, Scramble docs, and Pest testing.",
+    "keywords": ["laravel", "api", "rest", "starter-kit", "passport", "oauth2"],
     "license": "MIT",
     "require": {
         "php": "^8.4",
         "dedoc/scramble": "^0.12|^0.13",
         "grazulex/laravel-apiroute": "^2.0",
         "laravel/framework": "^13.0",
-        "laravel/sanctum": "^4.0",
+        "laravel/passport": "^13.0",
+        "laravel/socialite": "^5.0",
+        "laravel/telescope": "^5.0",
         "laravel/tinker": "^3.0",
         "spatie/laravel-data": "^4.0",
         "spatie/laravel-query-builder": "^7.0"
@@ -19,6 +21,7 @@
         "driftingly/rector-laravel": "^2.0",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.7",
+        "laravel/boost": "^2.0",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",
         "mockery/mockery": "^1.6",
@@ -77,7 +80,8 @@
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
+            "@php artisan migrate --graceful --ansi",
+            "@php artisan app:passport-setup --ansi"
         ]
     },
     "extra": {

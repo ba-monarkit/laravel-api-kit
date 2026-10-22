@@ -15,7 +15,7 @@ describe('Email Verification', function (): void {
         Event::fake();
 
         $user = User::factory()->create(['email_verified_at' => null]);
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $verificationUrl = URL::temporarySignedRoute(
             'verification.verify',
@@ -40,7 +40,7 @@ describe('Email Verification', function (): void {
         $user = User::factory()->create([
             'email_verified_at' => now(),
         ]);
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $verificationUrl = URL::temporarySignedRoute(
             'verification.verify',
@@ -74,7 +74,7 @@ describe('Email Verification', function (): void {
 
     it('fails verification with invalid signature', function (): void {
         $user = User::factory()->create(['email_verified_at' => null]);
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         // Invalid URL without signature
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
@@ -87,7 +87,7 @@ describe('Email Verification', function (): void {
 describe('Resend Verification Email', function (): void {
     it('resends verification email successfully', function (): void {
         $user = User::factory()->create(['email_verified_at' => null]);
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/v1/email/resend', [
@@ -105,7 +105,7 @@ describe('Resend Verification Email', function (): void {
         $user = User::factory()->create([
             'email_verified_at' => now(),
         ]);
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/v1/email/resend', [
@@ -121,7 +121,7 @@ describe('Resend Verification Email', function (): void {
 
     it('fails with invalid email', function (): void {
         $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/v1/email/resend', [
@@ -143,7 +143,7 @@ describe('Resend Verification Email', function (): void {
 
     it('respects rate limiting', function (): void {
         $user = User::factory()->create(['email_verified_at' => null]);
-        $token = $user->createToken('test-token')->plainTextToken;
+        $token = $user->createToken('test-token')->accessToken;
 
         // Make 7 requests (limit is 6 per minute)
         for ($i = 0; $i < 7; $i++) {

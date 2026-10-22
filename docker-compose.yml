@@ -1,10 +1,119 @@
+# Development stack: docker compose up -d
+#
+#   API        http://localhost:8000
+#   API docs   http://localhost:8000/docs/api
+#   Telescope  http://localhost:8000/telescope
+#   Mailpit    http://localhost:8025
+#
+# Values below override .env inside the containers, so the same .env also works
+# for running the app directly on the host with SQLite.
+
+x-app-env: &app-env
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: 3306
+  DB_DATABASE: ${DB_DATABASE:-laravel}
+  DB_USERNAME: ${DB_USERNAME:-laravel}
+  DB_PASSWORD: ${DB_PASSWORD:-secret}
+  REDIS_HOST: redis
+  QUEUE_CONNECTION: redis
+  CACHE_STORE: redis
+  MAIL_MAILER: smtp
+  MAIL_HOST: mailpit
+  MAIL_PORT: 1025
+  APP_URL: http://localhost:8000
+
+x-app: &app
+  build:
+    context: .
+    target: dev
+    args:
+      uid: ${UID:-1000}
+  image: laravel-api-kit:dev
+  working_dir: /var/www
+  volumes:
+    - ./:/var/www
+  environment:
+    <<: *app-env
+  restart: unless-stopped
+
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: laravel-api-kit-app
-    working_dir: /var/www
+    <<: *app
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "php", "artisan", "migrate:status", "--no-ansi"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  queue:
+    <<: *app
+    command: ["php", "artisan", "queue:work", "--tries=3", "--backoff=10"]
+    depends_on:
+      app:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      app:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "${APP_PORT:-8000}:80"
     volumes:
       - ./:/var/www
-    command: ["php-fpm"]
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "${FORWARD_DB_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "${FORWARD_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # Catches every outgoing email; web UI on http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "${FORWARD_MAILPIT_PORT:-1025}:1025"
+      - "${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:

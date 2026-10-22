@@ -37,4 +37,26 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Socialite Providers
+    |--------------------------------------------------------------------------
+    | Providers listed here are exposed at /api/v1/auth/{provider}/redirect.
+    |
+    */
+
+    'socialite_providers' => ['github', 'google'],
+
+    'github' => [
+        'client_id' => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect' => env('GITHUB_REDIRECT_URI', env('APP_URL').'/api/v1/auth/github/callback'),
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/api/v1/auth/google/callback'),
+    ],
+
 ];

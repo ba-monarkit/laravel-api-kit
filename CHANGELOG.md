@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Authentication now uses Laravel Passport (OAuth2) instead of Sanctum**: the guard is `auth:api`, tokens are JWT personal access tokens, logout and password reset revoke tokens
+- Verification and password-reset emails are queued and link to `FRONTEND_URL`
+- Docker rewritten as a multi-stage image (`dev`, `prod`, `nginx`) with a full dev stack and `docker-compose.prod.yml`
+- `phpunit.xml` forces SQLite/array/sync drivers so tests can never hit a real database or mailer
+- Dependencies updated within constraints (Laravel 13.38, Scramble 0.13.49), fixing a critical Scramble RCE advisory and Laravel signed-URL / email-rule advisories
+
+### Features
+
+- Social login with Laravel Socialite (GitHub, Google), stateless `redirect`/`callback` endpoints
+- Laravel Telescope for debugging, gated by `TELESCOPE_ALLOWED_EMAILS` outside local
+- Mailpit for local email testing (http://localhost:8025)
+- Queue worker and scheduler services; scheduled `telescope:prune` and `passport:purge`
+- Laravel Boost (MCP server, AI guidelines and skills)
+- Scramble documents Bearer auth; public endpoints marked `@unauthenticated`
+- `php artisan app:passport-setup` (idempotent keys + personal access client)
+
+### Fixes
+
+- Password login for social-only accounts (no password) returns 401 instead of erroring
+
 ## [2.5.0](https://github.com/Grazulex/laravel-api-kit/releases/tag/v2.5.0) (2026-10-08)
 
 ### Changed

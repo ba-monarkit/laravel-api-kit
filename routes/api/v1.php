@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\SocialAuthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,10 +19,18 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:auth')->group(function (): void {
     Route::post('register', [AuthController::class, 'register'])->name('api.v1.register');
     Route::post('login', [AuthController::class, 'login'])->name('api.v1.login');
+
+    // Social login via Laravel Socialite (stateless OAuth)
+    Route::get('auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])
+        ->whereIn('provider', config()->array('services.socialite_providers'))
+        ->name('api.v1.social.redirect');
+    Route::get('auth/{provider}/callback', [SocialAuthController::class, 'callback'])
+        ->whereIn('provider', config()->array('services.socialite_providers'))
+        ->name('api.v1.social.callback');
 });
 
 // Protected routes with authenticated rate limiter (120/min)
-Route::middleware(['auth:sanctum', 'throttle:authenticated'])->group(function (): void {
+Route::middleware(['auth:api', 'throttle:authenticated'])->group(function (): void {
     Route::post('logout', [AuthController::class, 'logout'])->name('api.v1.logout');
     Route::get('me', [AuthController::class, 'me'])->name('api.v1.me');
 
